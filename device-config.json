@@ -1,0 +1,229 @@
+{
+  "type": "profile",
+  "dashboard": {
+    "states": [
+      {
+        "component": "main",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "idx": 0,
+        "group": "main",
+        "values": [],
+        "composite": true
+      }
+    ],
+    "actions": [],
+    "basicPlus": []
+  },
+  "detailView": [
+    {
+      "component": "main",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "main",
+      "capability": "buildbook37604.wallpadCheckedV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target1",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target1",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target2",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target2",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target3",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target3",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target4",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target4",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target5",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target5",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target6",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target6",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target7",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target7",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target8",
+      "capability": "buildbook37604.wallpadStatusV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "target8",
+      "capability": "buildbook37604.wallpadSummaryV102",
+      "version": 1,
+      "values": []
+    },
+    {
+      "component": "main",
+      "capability": "buildbook37604.driverInformation",
+      "version": 1,
+      "values": []
+    }
+  ],
+  "automation": {
+    "conditions": [
+      {
+        "component": "main",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target1",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target2",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target3",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target4",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target5",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target6",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target7",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      },
+      {
+        "component": "target8",
+        "capability": "buildbook37604.wallpadStatusV102",
+        "version": 1,
+        "values": [
+          {
+            "key": "status.value"
+          }
+        ]
+      }
+    ],
+    "actions": []
+  }
+}

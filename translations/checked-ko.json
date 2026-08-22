@@ -1,0 +1,11 @@
+{
+  "tag": "ko",
+  "label": "최근 확인",
+  "attributes": {
+    "lastChecked": {
+      "label": "최근 확인",
+      "i18n": {}
+    }
+  },
+  "commands": {}
+}

@@ -1,0 +1,26 @@
+{
+  "tag": "ko",
+  "label": "네트워크 상태",
+  "attributes": {
+    "status": {
+      "label": "상태",
+      "i18n": {
+        "value": {
+          "checking": {
+            "label": "확인 중"
+          },
+          "online": {
+            "label": "정상"
+          },
+          "offline": {
+            "label": "비정상"
+          },
+          "disabled": {
+            "label": "미사용"
+          }
+        }
+      }
+    }
+  },
+  "commands": {}
+}

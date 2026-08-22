@@ -1,0 +1,8 @@
+name: C.P Wallpad Network Monitor
+packageKey: cp-wallpad-network-monitor-v100
+permissions:
+  lan: {}
+  discovery: {}
+profiles:
+  - id: cp-wallpad-network-monitor
+    file: profiles/network-monitor.yml

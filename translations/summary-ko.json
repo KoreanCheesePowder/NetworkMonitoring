@@ -1,0 +1,11 @@
+{
+  "tag": "ko",
+  "label": "대상 정보",
+  "attributes": {
+    "summary": {
+      "label": "대상 정보",
+      "i18n": {}
+    }
+  },
+  "commands": {}
+}

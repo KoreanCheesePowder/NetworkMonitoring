@@ -1,0 +1,367 @@
+name: cp-wallpad-network-monitor
+components:
+  - id: main
+    label: 전체 상태
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadCheckedV102
+        version: 1
+      - id: buildbook37604.driverInformation
+        version: 1
+      - id: refresh
+        version: 1
+    categories:
+      - name: Hub
+  - id: target1
+    label: 대상 1
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target2
+    label: 대상 2
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target3
+    label: 대상 3
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target4
+    label: 대상 4
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target5
+    label: 대상 5
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target6
+    label: 대상 6
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target7
+    label: 대상 7
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+  - id: target8
+    label: 대상 8
+    capabilities:
+      - id: buildbook37604.wallpadStatusV102
+        version: 1
+      - id: buildbook37604.wallpadSummaryV102
+        version: 1
+preferences:
+  - name: checkInterval
+    title: 상태 확인 주기(초)
+    description: "각 대상의 TCP 포트 상태를 확인하는 주기"
+    required: true
+    preferenceType: integer
+    definition:
+      minimum: 5
+      maximum: 300
+      default: 10
+  - name: connectTimeout
+    title: 연결 제한시간(초)
+    description: "한 번의 TCP 연결 확인 제한시간"
+    required: true
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 10
+      default: 2
+  - name: failThreshold
+    title: 비정상 판정 연속 실패 횟수
+    description: "이 횟수만큼 연속 실패하면 비정상으로 변경"
+    required: true
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 10
+      default: 3
+
+  - name: target1Enabled
+    title: "[대상 1] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: true
+  - name: target1Name
+    title: "[대상 1] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "월패드 제어"
+  - name: target1Ip
+    title: "[대상 1] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.100"
+  - name: target1Port
+    title: "[대상 1] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 8899
+
+  - name: target2Enabled
+    title: "[대상 2] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: true
+  - name: target2Name
+    title: "[대상 2] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "현관문 / BLE"
+  - name: target2Ip
+    title: "[대상 2] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.101"
+  - name: target2Port
+    title: "[대상 2] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 8899
+
+  - name: target3Enabled
+    title: "[대상 3] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: true
+  - name: target3Name
+    title: "[대상 3] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "WAN 로거"
+  - name: target3Ip
+    title: "[대상 3] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.102"
+  - name: target3Port
+    title: "[대상 3] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 22
+
+  - name: target4Enabled
+    title: "[대상 4] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+  - name: target4Name
+    title: "[대상 4] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "추가 대상 4"
+  - name: target4Ip
+    title: "[대상 4] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.103"
+  - name: target4Port
+    title: "[대상 4] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 80
+
+  - name: target5Enabled
+    title: "[대상 5] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+  - name: target5Name
+    title: "[대상 5] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "추가 대상 5"
+  - name: target5Ip
+    title: "[대상 5] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.104"
+  - name: target5Port
+    title: "[대상 5] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 80
+
+  - name: target6Enabled
+    title: "[대상 6] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+  - name: target6Name
+    title: "[대상 6] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "추가 대상 6"
+  - name: target6Ip
+    title: "[대상 6] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.105"
+  - name: target6Port
+    title: "[대상 6] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 80
+
+  - name: target7Enabled
+    title: "[대상 7] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+  - name: target7Name
+    title: "[대상 7] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "추가 대상 7"
+  - name: target7Ip
+    title: "[대상 7] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.106"
+  - name: target7Port
+    title: "[대상 7] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 80
+
+  - name: target8Enabled
+    title: "[대상 8] 사용"
+    description: "OFF로 바꾸면 이 대상을 삭제/미사용 처리"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+  - name: target8Name
+    title: "[대상 8] 이름"
+    description: "상세정보에 표시할 이름"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "추가 대상 8"
+  - name: target8Ip
+    title: "[대상 8] IP 주소"
+    description: "예: 192.168.1.100"
+    required: false
+    preferenceType: string
+    definition:
+      stringType: text
+      default: "192.168.1.107"
+  - name: target8Port
+    title: "[대상 8] TCP 포트"
+    description: "해당 장비에서 항상 열려 있는 TCP 포트"
+    required: false
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 65535
+      default: 80
+
+metadata:
+  mnmn: SmartThingsCommunity
+  vid: 40758e17-c4bc-3b3f-a549-a3562f312024

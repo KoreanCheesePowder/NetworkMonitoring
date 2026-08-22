@@ -1,0 +1,19 @@
+{
+  "dashboard": {
+    "states": [],
+    "actions": []
+  },
+  "detailView": [
+    {
+      "label": "대상 정보",
+      "displayType": "state",
+      "state": {
+        "label": "{{summary.value}}"
+      }
+    }
+  ],
+  "automation": {
+    "conditions": [],
+    "actions": []
+  }
+}

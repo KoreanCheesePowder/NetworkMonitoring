@@ -1,0 +1,19 @@
+{
+  "dashboard": {
+    "states": [],
+    "actions": []
+  },
+  "detailView": [
+    {
+      "label": "최근 확인",
+      "displayType": "state",
+      "state": {
+        "label": "{{lastChecked.value}}"
+      }
+    }
+  ],
+  "automation": {
+    "conditions": [],
+    "actions": []
+  }
+}

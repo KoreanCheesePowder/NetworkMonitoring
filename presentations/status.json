@@ -1,0 +1,77 @@
+{
+  "dashboard": {
+    "states": [
+      {
+        "label": "{{status.value}}",
+        "alternatives": [
+          {
+            "key": "checking",
+            "value": "확인 중"
+          },
+          {
+            "key": "online",
+            "value": "정상"
+          },
+          {
+            "key": "offline",
+            "value": "비정상"
+          },
+          {
+            "key": "disabled",
+            "value": "미사용"
+          }
+        ]
+      }
+    ],
+    "actions": []
+  },
+  "detailView": [
+    {
+      "label": "상태",
+      "displayType": "state",
+      "state": {
+        "label": "{{status.value}}",
+        "alternatives": [
+          {
+            "key": "checking",
+            "value": "확인 중"
+          },
+          {
+            "key": "online",
+            "value": "정상"
+          },
+          {
+            "key": "offline",
+            "value": "비정상"
+          },
+          {
+            "key": "disabled",
+            "value": "미사용"
+          }
+        ]
+      }
+    }
+  ],
+  "automation": {
+    "conditions": [
+      {
+        "label": "상태",
+        "displayType": "list",
+        "list": {
+          "alternatives": [
+            {
+              "key": "online",
+              "value": "정상"
+            },
+            {
+              "key": "offline",
+              "value": "비정상"
+            }
+          ],
+          "value": "status.value"
+        }
+      }
+    ],
+    "actions": []
+  }
+}
