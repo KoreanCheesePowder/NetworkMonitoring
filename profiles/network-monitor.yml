@@ -97,6 +97,15 @@ preferences:
       minimum: 1
       maximum: 10
       default: 3
+  - name: successThreshold
+    title: 정상 복귀 연속 성공 횟수
+    description: "비정상 상태에서 이 횟수만큼 연속 성공해야 정상으로 복귀"
+    required: true
+    preferenceType: integer
+    definition:
+      minimum: 1
+      maximum: 10
+      default: 3
 
   - name: target1Enabled
     title: "[대상 1] 사용"

@@ -3,7 +3,7 @@ local Driver = require "st.driver"
 local log = require "log"
 local socket = require "cosock.socket"
 
-local DRIVER_VERSION = "v1.0.6"
+local DRIVER_VERSION = "v1.0.7"
 local AUTHOR = "치즈가루"
 local DEVICE_DNI = "cp-wallpad-network-monitor"
 local DEVICE_PROFILE = "cp-wallpad-network-monitor"
@@ -17,6 +17,7 @@ local info_cap = capabilities["buildbook37604.driverInformation"]
 local generations = {}
 local states = {}
 local failures = {}
+local successes = {}
 local pref_restart_seq = {}
 
 local function kst_now()
@@ -151,6 +152,7 @@ local function run_monitor_cycle(device, generation)
 
   local timeout = tonumber(pref(device, "connectTimeout", 2)) or 2
   local threshold = tonumber(pref(device, "failThreshold", 3)) or 3
+  local success_threshold = tonumber(pref(device, "successThreshold", 3)) or 3
   local interval = math.max(5, tonumber(pref(device, "checkInterval", 10)) or 10)
 
   for slot = 1, MAX_TARGETS do
@@ -159,6 +161,7 @@ local function run_monitor_cycle(device, generation)
     local cfg = target_config(device, slot)
     if not cfg.enabled then
       failures[did][slot] = 0
+      successes[did][slot] = 0
       emit_slot_status(device, slot, "disabled", false)
     else
       if (states[did][slot] == nil) or states[did][slot] == "disabled" then
@@ -170,9 +173,23 @@ local function run_monitor_cycle(device, generation)
 
       if ok then
         failures[did][slot] = 0
-        emit_slot_status(device, slot, "online", false)
+        successes[did][slot] = (successes[did][slot] or 0) + 1
+        local current = states[did][slot]
+        -- Do not bounce offline -> online on a single successful probe.
+        -- Require consecutive successes after an outage. Initial checking can
+        -- become online immediately so startup does not take unnecessarily long.
+        if current == "offline" then
+          log.info(string.format("Target %d recovery success (%d/%d): %s:%d",
+            slot, successes[did][slot], success_threshold, cfg.ip, cfg.port))
+          if successes[did][slot] >= success_threshold then
+            emit_slot_status(device, slot, "online", false)
+          end
+        else
+          emit_slot_status(device, slot, "online", false)
+        end
         log.info(string.format("Target %d OK: %s:%d", slot, cfg.ip, cfg.port))
       else
+        successes[did][slot] = 0
         failures[did][slot] = (failures[did][slot] or 0) + 1
         log.warn(string.format("Target %d %s %s:%d failed (%d/%d): %s",
           slot, cfg.name, cfg.ip, cfg.port, failures[did][slot], threshold, tostring(err)))
@@ -203,9 +220,11 @@ local function start_workers(device)
   local generation = generations[did]
   states[did] = {}
   failures[did] = {}
+  successes[did] = {}
 
   for i = 1, MAX_TARGETS do
     failures[did][i] = 0
+    successes[did][i] = 0
     local cfg = target_config(device, i)
     emit_slot_status(device, i, cfg.enabled and "checking" or "disabled", true)
   end
@@ -264,6 +283,7 @@ local function removed(driver, device)
   stop_workers(device)
   states[device.id] = nil
   failures[device.id] = nil
+  successes[device.id] = nil
   pref_restart_seq[device.id] = nil
 end
 
