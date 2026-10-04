@@ -3,7 +3,7 @@ local Driver = require "st.driver"
 local log = require "log"
 local socket = require "cosock.socket"
 
-local DRIVER_VERSION = "v1.0.7"
+local DRIVER_VERSION = "v1.1.2"
 local AUTHOR = "치즈가루"
 local DEVICE_DNI = "cp-wallpad-network-monitor"
 local DEVICE_PROFILE = "cp-wallpad-network-monitor"
@@ -19,6 +19,7 @@ local states = {}
 local failures = {}
 local successes = {}
 local pref_restart_seq = {}
+local summary_cache = {}
 
 local function kst_now()
   return os.date("!%Y-%m-%d %H:%M:%S", os.time() + (9 * 60 * 60))
@@ -78,12 +79,25 @@ end
 
 local function target_config(device, slot)
   local raw_enabled = pref(device, "target" .. slot .. "Enabled", false)
+  local ip = tostring(pref(device, "target" .. slot .. "Ip", "") or "")
+  local configured_port = tonumber(pref(device, "target" .. slot .. "Port", 80)) or 80
+  local port = configured_port
+
+  -- IP101: 8899 is the live RS485 door bridge and must not be used for
+  -- periodic health probes. Firmware exposes dedicated health TCP 8898.
+  -- Existing installations that still have the old default 8899 are migrated
+  -- internally so updating the driver does not require recreating the device.
+  if ip == "192.168.1.101" and configured_port == 8899 then
+    port = 8898
+  end
+
   return {
     enabled = as_bool(raw_enabled, false),
     raw_enabled = raw_enabled,
     name = tostring(pref(device, "target" .. slot .. "Name", "대상 " .. slot) or "대상 " .. slot),
-    ip = tostring(pref(device, "target" .. slot .. "Ip", "") or ""),
-    port = tonumber(pref(device, "target" .. slot .. "Port", 80)) or 80
+    ip = ip,
+    port = port,
+    configured_port = configured_port
   }
 end
 
@@ -94,13 +108,19 @@ local function state_label(status)
   return "확인 중"
 end
 
-local function emit_slot_summary(device, slot, status)
+local function emit_slot_summary(device, slot, status, force)
   local cfg = target_config(device, slot)
   local addr = cfg.ip
   if addr ~= "" and cfg.port then addr = addr .. ":" .. tostring(cfg.port) end
   if addr == "" then addr = "주소 미설정" end
   local text = status == "disabled" and (cfg.name .. " · 미사용") or (cfg.name .. " · " .. state_label(status) .. " · " .. addr)
-  if summary_cap then device:emit_component_event(device.profile.components["target" .. slot], summary_cap.summary(text)) end
+
+  local did = device.id
+  summary_cache[did] = summary_cache[did] or {}
+  if summary_cap and (force or summary_cache[did][slot] ~= text) then
+    device:emit_component_event(device.profile.components["target" .. slot], summary_cap.summary(text))
+    summary_cache[did][slot] = text
+  end
 end
 
 local function emit_slot_status(device, slot, status, force)
@@ -108,11 +128,12 @@ local function emit_slot_status(device, slot, status, force)
   states[did] = states[did] or {}
   local old = states[did][slot]
   states[did][slot] = status
-  if monitor_cap and (force or old ~= status) then
-    device:emit_component_event(device.profile.components["target" .. slot], monitor_cap.status(status, { state_change = old ~= status }))
+  local changed = old ~= status
+  if monitor_cap and (force or changed) then
+    device:emit_component_event(device.profile.components["target" .. slot], monitor_cap.status(status, { state_change = changed }))
     log.info(string.format("Target %d status %s -> %s", slot, tostring(old), status))
   end
-  emit_slot_summary(device, slot, status)
+  emit_slot_summary(device, slot, status, force or changed)
 end
 
 local function recalc_overall(device)
@@ -134,7 +155,6 @@ local function recalc_overall(device)
     if current ~= overall then device:emit_event(monitor_cap.status(overall, { state_change = true })) end
   end
   if checked_cap then device:emit_event(checked_cap.lastChecked(kst_now())) end
-  emit_info(device)
 end
 
 local function tcp_check(ip, port, timeout)
@@ -218,15 +238,25 @@ local function start_workers(device)
   stop_workers(device)
   local did = device.id
   local generation = generations[did]
-  states[did] = {}
+  states[did] = states[did] or {}
   failures[did] = {}
   successes[did] = {}
+  summary_cache[did] = summary_cache[did] or {}
 
   for i = 1, MAX_TARGETS do
     failures[did][i] = 0
     successes[did][i] = 0
     local cfg = target_config(device, i)
-    emit_slot_status(device, i, cfg.enabled and "checking" or "disabled", true)
+
+    if not cfg.enabled then
+      emit_slot_status(device, i, "disabled", states[did][i] == nil)
+    elseif states[did][i] == nil or states[did][i] == "disabled" then
+      emit_slot_status(device, i, "checking", true)
+    else
+      -- Manual refresh / preference debounce must not force online devices
+      -- through a synthetic checking -> online transition.
+      emit_slot_summary(device, i, states[did][i], false)
+    end
   end
   recalc_overall(device)
 
@@ -271,7 +301,7 @@ local function info_changed(driver, device, event, args)
         "Applied target %d: enabled=%s raw=%s(%s) name=%s address=%s:%d",
         i, tostring(cfg.enabled), tostring(cfg.raw_enabled), type(cfg.raw_enabled), cfg.name, cfg.ip, cfg.port
       ))
-      emit_slot_summary(device, i, cfg.enabled and (states[did] and states[did][i] or "checking") or "disabled")
+      emit_slot_summary(device, i, cfg.enabled and (states[did] and states[did][i] or "checking") or "disabled", false)
     end
 
     emit_info(device)
@@ -285,6 +315,7 @@ local function removed(driver, device)
   failures[device.id] = nil
   successes[device.id] = nil
   pref_restart_seq[device.id] = nil
+  summary_cache[device.id] = nil
 end
 
 local function refresh_handler(driver, device, command)
