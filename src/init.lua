@@ -1,9 +1,11 @@
+local CP_MONITOR_META = { driver_name = "C.P Wallpad Network Monitor", driver_version = "v1.1.3", package_key = "cp-wallpad-network-monitor-v100", target_name = "Network Targets", transport = "tcp" }
+local cp_monitor = require "cp_monitor"
 local capabilities = require "st.capabilities"
 local Driver = require "st.driver"
 local log = require "log"
 local socket = require "cosock.socket"
 
-local DRIVER_VERSION = "v1.1.2"
+local DRIVER_VERSION = "v1.1.3"
 local AUTHOR = "치즈가루"
 local DEVICE_DNI = "cp-wallpad-network-monitor"
 local DEVICE_PROFILE = "cp-wallpad-network-monitor"
@@ -221,6 +223,8 @@ local function run_monitor_cycle(device, generation)
   end
 
   recalc_overall(device)
+  local any_offline=false; for i=1,MAX_TARGETS do if states[did][i]=="offline" then any_offline=true break end end
+  pcall(cp_monitor.poll, device, not any_offline, any_offline and "one or more targets offline" or nil)
 
   if generations[did] == generation then
     device.thread:call_with_delay(interval, function()
@@ -281,6 +285,7 @@ local function added(driver, device)
 end
 
 local function init(driver, device)
+  pcall(cp_monitor.start, device, CP_MONITOR_META)
   activate_device(driver, device)
 end
 
