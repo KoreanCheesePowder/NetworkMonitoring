@@ -169,8 +169,9 @@ function M.event(device, name)
   local s = state(device); s.event_count = s.event_count + 1; s.last_event = tostring(name or "event")
 end
 function M.poll(device, ok, err)
-  local s = state(device); s.last_poll = os.time(); s.poll_status = ok and "success" or "failed"; s.poll_error = ok and nil or tostring(err or "poll failed")
-  if not ok then M.error(device, err or "poll failed") end
+  local s = state(device); local prior_status = s.poll_status
+  s.last_poll = os.time(); s.poll_status = ok and "success" or "failed"; s.poll_error = ok and nil or tostring(err or "poll failed")
+  if not ok and prior_status ~= "failed" then M.error(device, err or "poll failed") end
 end
 function M.error(device, err)
   local s = state(device); s.error_count = s.error_count + 1; s.last_error = tostring(err or "unknown")

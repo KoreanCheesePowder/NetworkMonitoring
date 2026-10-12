@@ -1,11 +1,12 @@
-local CP_MONITOR_META = { driver_name = "C.P Wallpad Network Monitor", driver_version = "v1.1.3", package_key = "cp-wallpad-network-monitor-v100", target_name = "Network Targets", transport = "tcp" }
+local CP_MONITOR_META = { driver_name = "C.P Wallpad Network Monitor", driver_version = "v1.1.4", package_key = "cp-wallpad-network-monitor-v100", target_name = "Network Targets", transport = "tcp" }
 local cp_monitor = require "cp_monitor"
+local health_state = require "health_state"
 local capabilities = require "st.capabilities"
 local Driver = require "st.driver"
 local log = require "log"
 local socket = require "cosock.socket"
 
-local DRIVER_VERSION = "v1.1.3"
+local DRIVER_VERSION = "v1.1.4"
 local AUTHOR = "치즈가루"
 local DEVICE_DNI = "cp-wallpad-network-monitor"
 local DEVICE_PROFILE = "cp-wallpad-network-monitor"
@@ -18,8 +19,9 @@ local info_cap = capabilities["buildbook37604.driverInformation"]
 
 local generations = {}
 local states = {}
-local failures = {}
-local successes = {}
+local health = {}
+local signatures = {}
+local checked_emit_at = {}
 local pref_restart_seq = {}
 local summary_cache = {}
 
@@ -125,20 +127,28 @@ local function emit_slot_summary(device, slot, status, force)
   end
 end
 
-local function emit_slot_status(device, slot, status, force)
+local function genuine_state_transition(old, new)
+  return (new == "offline" and (old == "online" or old == "checking")) or
+         (old == "offline" and new == "online")
+end
+
+local function emit_slot_status(device, slot, status, force, suppress_alert)
   local did = device.id
   states[did] = states[did] or {}
   local old = states[did][slot]
   states[did][slot] = status
   local changed = old ~= status
   if monitor_cap and (force or changed) then
-    device:emit_component_event(device.profile.components["target" .. slot], monitor_cap.status(status, { state_change = changed }))
-    log.info(string.format("Target %d status %s -> %s", slot, tostring(old), status))
+    local signal = changed and not suppress_alert and genuine_state_transition(old, status) or false
+    device:emit_component_event(device.profile.components["target" .. slot],
+      monitor_cap.status(status, { state_change = signal }))
+    log.info(string.format("Target %d status %s -> %s (routine=%s)",
+      slot, tostring(old), status, tostring(signal)))
   end
   emit_slot_summary(device, slot, status, force or changed)
 end
 
-local function recalc_overall(device)
+local function recalc_overall(device, suppress_alert)
   local did = device.id
   states[did] = states[did] or {}
   local enabled, offline, checking = 0, 0, 0
@@ -147,89 +157,178 @@ local function recalc_overall(device)
     if cfg.enabled then
       enabled = enabled + 1
       local st = states[did][i] or "checking"
-      if st == "offline" then offline = offline + 1 elseif st == "checking" then checking = checking + 1 end
+      if st == "offline" then offline = offline + 1
+      elseif st == "checking" then checking = checking + 1 end
     end
   end
   local overall = "online"
-  if enabled == 0 then overall = "disabled" elseif offline > 0 then overall = "offline" elseif checking > 0 then overall = "checking" end
+  if enabled == 0 then overall = "disabled"
+  elseif offline > 0 then overall = "offline"
+  elseif checking > 0 then overall = "checking" end
   if monitor_cap then
     local current = device:get_latest_state("main", monitor_cap.ID, "status")
-    if current ~= overall then device:emit_event(monitor_cap.status(overall, { state_change = true })) end
+    if current ~= overall then
+      local signal = not suppress_alert and genuine_state_transition(current, overall) or false
+      device:emit_event(monitor_cap.status(overall, { state_change = signal }))
+    end
   end
-  if checked_cap then device:emit_event(checked_cap.lastChecked(kst_now())) end
+  if checked_cap then
+    local now = os.time()
+    if not checked_emit_at[did] or now - checked_emit_at[did] >= 60 then
+      device:emit_event(checked_cap.lastChecked(kst_now()))
+      checked_emit_at[did] = now
+    end
+  end
 end
 
+-- Do not let a socket implementation/runtime exception terminate the worker.
+-- An internal driver error is *not* evidence that a target is offline.
 local function tcp_check(ip, port, timeout)
-  if ip == nil or ip == "" or port == nil then return false, "missing address" end
-  local tcp = socket.tcp()
-  tcp:settimeout(timeout)
-  local ok, err = tcp:connect(ip, port)
+  if ip == nil or ip == "" or port == nil then return false, "missing address", "configuration" end
+  local created, tcp, create_err = pcall(socket.tcp)
+  if not created or not tcp then
+    return false, "socket creation error: " .. tostring(created and create_err or tcp), "internal"
+  end
+  local configured, timeout_result, timeout_err = pcall(function() return tcp:settimeout(timeout) end)
+  if not configured or timeout_result == nil or timeout_result == false then
+    pcall(function() tcp:close() end)
+    return false, "socket timeout setup error: " .. tostring(configured and timeout_err or timeout_result), "internal"
+  end
+  local executed, connected, err = pcall(function() return tcp:connect(ip, port) end)
   pcall(function() tcp:close() end)
-  return ok ~= nil and ok ~= false, err
+  if not executed then return false, "socket connect exception: " .. tostring(connected), "internal" end
+  if connected and connected ~= false then return true, nil, nil end
+  return false, tostring(err or "TCP connect failed"), "target"
+end
+
+local function cached_target_status(device, slot)
+  if not monitor_cap then return nil end
+  local ok, value = pcall(function()
+    return device:get_latest_state("target" .. slot, monitor_cap.ID, "status")
+  end)
+  if ok and (value == "online" or value == "offline") then return value end
+  return nil
+end
+
+local function config_signature(cfg)
+  return table.concat({ tostring(cfg.enabled), tostring(cfg.ip), tostring(cfg.port) }, "|")
+end
+
+local function restored_target_status(device, slot, signature)
+  local ok_sig, stored_sig = pcall(function()
+    return device:get_field("cp_nmon_signature_" .. slot)
+  end)
+  local ok_status, value = pcall(function()
+    return device:get_field("cp_nmon_verified_status_" .. slot)
+  end)
+  if ok_sig and ok_status and stored_sig == signature and
+      (value == "online" or value == "offline") then return value end
+  return cached_target_status(device, slot)
+end
+
+local function persist_target_status(device, slot, signature, value)
+  if value ~= "online" and value ~= "offline" then return end
+  -- Write only on confirmed changes, not every probe, to avoid flash wear.
+  pcall(function()
+    device:set_field("cp_nmon_signature_" .. slot, signature, { persist = true })
+    device:set_field("cp_nmon_verified_status_" .. slot, value, { persist = true })
+  end)
 end
 
 local function run_monitor_cycle(device, generation)
   local did = device.id
   if generations[did] ~= generation then return end
 
-  local timeout = tonumber(pref(device, "connectTimeout", 2)) or 2
-  local threshold = tonumber(pref(device, "failThreshold", 3)) or 3
-  local success_threshold = tonumber(pref(device, "successThreshold", 3)) or 3
-  local interval = math.max(5, tonumber(pref(device, "checkInterval", 10)) or 10)
+  local timeout = math.max(1, math.min(10, tonumber(pref(device, "connectTimeout", 2)) or 2))
+  local threshold = math.max(1, math.min(10, tonumber(pref(device, "failThreshold", 3)) or 3))
+  local success_threshold = math.max(1, math.min(10, tonumber(pref(device, "successThreshold", 3)) or 3))
+  local interval = math.max(5, math.min(300, tonumber(pref(device, "checkInterval", 10)) or 10))
 
+  local state_changed_this_cycle = false
   for slot = 1, MAX_TARGETS do
     if generations[did] ~= generation then return end
 
     local cfg = target_config(device, slot)
+    local observation = health[did] and health[did][slot]
     if not cfg.enabled then
-      failures[did][slot] = 0
-      successes[did][slot] = 0
-      emit_slot_status(device, slot, "disabled", false)
-    else
-      if (states[did][slot] == nil) or states[did][slot] == "disabled" then
-        emit_slot_status(device, slot, "checking", true)
+      if not observation or observation.status ~= "disabled" then
+        health[did][slot] = health_state.new("disabled")
+        emit_slot_status(device, slot, "disabled", false, true)
       end
-
-      log.info(string.format("Checking target %d: %s %s:%d", slot, cfg.name, cfg.ip, cfg.port))
-      local ok, err = tcp_check(cfg.ip, cfg.port, timeout)
-
-      if ok then
-        failures[did][slot] = 0
-        successes[did][slot] = (successes[did][slot] or 0) + 1
-        local current = states[did][slot]
-        -- Do not bounce offline -> online on a single successful probe.
-        -- Require consecutive successes after an outage. Initial checking can
-        -- become online immediately so startup does not take unnecessarily long.
-        if current == "offline" then
-          log.info(string.format("Target %d recovery success (%d/%d): %s:%d",
-            slot, successes[did][slot], success_threshold, cfg.ip, cfg.port))
-          if successes[did][slot] >= success_threshold then
-            emit_slot_status(device, slot, "online", false)
-          end
-        else
-          emit_slot_status(device, slot, "online", false)
+    elseif observation then
+      log.debug(string.format("TCP service check target %d: %s %s:%d", slot, cfg.name, cfg.ip, cfg.port))
+      local ok, err, category = tcp_check(cfg.ip, cfg.port, timeout)
+      if generations[did] ~= generation then return end
+      if category == "internal" then
+        -- Skip this sample. Raising an offline event for a local socket error
+        -- wrongly blames the ESP device and can cause notification storms.
+        local now = os.time()
+        if observation.last_internal_log == nil or now - observation.last_internal_log >= 60 then
+          log.error(string.format("Monitor internal socket failure for target %d: %s", slot, tostring(err)))
+          observation.last_internal_log = now
         end
-        log.info(string.format("Target %d OK: %s:%d", slot, cfg.ip, cfg.port))
       else
-        successes[did][slot] = 0
-        failures[did][slot] = (failures[did][slot] or 0) + 1
-        log.warn(string.format("Target %d %s %s:%d failed (%d/%d): %s",
-          slot, cfg.name, cfg.ip, cfg.port, failures[did][slot], threshold, tostring(err)))
-        if failures[did][slot] >= threshold then
-          emit_slot_status(device, slot, "offline", false)
+        local prev = observation.status
+        local changed, signal = health_state.observe(observation, ok, os.time(), threshold, success_threshold)
+        if changed then
+          state_changed_this_cycle = state_changed_this_cycle or signal
+          persist_target_status(device, slot, config_signature(cfg), observation.status)
+          emit_slot_status(device, slot, observation.status, false, not signal)
+          if observation.status == "offline" then
+            log.error(string.format("Confirmed TCP service failure target %d: %s %s:%d; %s; failed for >=%ds",
+              slot, cfg.name, cfg.ip, cfg.port, tostring(err), health_state.MIN_FAILURE_SECONDS))
+          else
+            log.info(string.format("TCP service target %d %s -> %s", slot, prev, observation.status))
+          end
+        elseif not ok then
+          if observation.fail_count == 1 then
+            log.warn(string.format("Transient TCP failure target %d: %s %s:%d: %s; holding %s",
+              slot, cfg.name, cfg.ip, cfg.port, tostring(err), observation.status))
+          else
+            log.debug(string.format("TCP failure target %d (%d/%d): %s; holding %s",
+              slot, observation.fail_count, threshold, tostring(err), observation.status))
+          end
+        end
+        if ok then
+          log.debug(string.format("TCP service OK target %d: %s:%d", slot, cfg.ip, cfg.port))
+        else
+          observation.last_error = tostring(err)
         end
       end
     end
   end
 
-  recalc_overall(device)
-  local any_offline=false; for i=1,MAX_TARGETS do if states[did][i]=="offline" then any_offline=true break end end
-  pcall(cp_monitor.poll, device, not any_offline, any_offline and "one or more targets offline" or nil)
+  recalc_overall(device, false)
+  local offline_targets = {}
+  for slot = 1, MAX_TARGETS do
+    local cfg = target_config(device, slot)
+    if cfg.enabled and states[did][slot] == "offline" then
+      local obs = health[did] and health[did][slot]
+      table.insert(offline_targets, string.format("target %d %s %s:%d (%s)",
+        slot, cfg.name, cfg.ip, cfg.port, tostring(obs and obs.last_error or "no TCP response")))
+    end
+  end
+  pcall(cp_monitor.poll, device, #offline_targets == 0,
+    #offline_targets > 0 and table.concat(offline_targets, "; ") or nil)
+  if state_changed_this_cycle then
+    -- Capture a confirmed state transition in NAS telemetry immediately,
+    -- rather than waiting for the ordinary 60-second Edge heartbeat.
+    pcall(cp_monitor.send, device)
+  end
 
   if generations[did] == generation then
-    device.thread:call_with_delay(interval, function()
-      run_monitor_cycle(device, generation)
-    end, "network-monitor-cycle")
+    local invoke
+    invoke = function()
+      if generations[did] ~= generation then return end
+      local success, message = pcall(run_monitor_cycle, device, generation)
+      if not success then
+        log.error("Network monitor worker error: " .. tostring(message))
+        if generations[did] == generation then
+          device.thread:call_with_delay(math.max(10, interval), invoke, "network-monitor-retry")
+        end
+      end
+    end
+    device.thread:call_with_delay(interval, invoke, "network-monitor-cycle")
   end
 end
 
@@ -243,35 +342,54 @@ local function start_workers(device)
   local did = device.id
   local generation = generations[did]
   states[did] = states[did] or {}
-  failures[did] = {}
-  successes[did] = {}
+  health[did] = health[did] or {}
+  signatures[did] = signatures[did] or {}
   summary_cache[did] = summary_cache[did] or {}
 
   for i = 1, MAX_TARGETS do
-    failures[did][i] = 0
-    successes[did][i] = 0
     local cfg = target_config(device, i)
-
-    if not cfg.enabled then
-      emit_slot_status(device, i, "disabled", states[did][i] == nil)
-    elseif states[did][i] == nil or states[did][i] == "disabled" then
-      emit_slot_status(device, i, "checking", true)
+    local sig = config_signature(cfg)
+    local new_or_changed = health[did][i] == nil or signatures[did][i] ~= sig
+    if new_or_changed then
+      -- Restore SmartThings' previous confirmed value. Do NOT emit an
+      -- artificial 'checking' state during refresh or IP/port edits: an
+      -- attribute value change can trigger automations even with
+      -- state_change=false, according to SmartThings SDK semantics.
+      local prior = states[did][i] or restored_target_status(device, i, sig)
+      local initial
+      if not cfg.enabled then
+        initial = "disabled"
+      elseif prior == "online" or prior == "offline" then
+        initial = prior
+      else
+        initial = "checking"
+      end
+      health[did][i] = health_state.new(initial)
+      signatures[did][i] = sig
+      if prior == initial then
+        states[did][i] = initial
+        emit_slot_summary(device, i, initial, true)
+      else
+        emit_slot_status(device, i, initial, false, true)
+      end
     else
-      -- Manual refresh / preference debounce must not force online devices
-      -- through a synthetic checking -> online transition.
-      emit_slot_summary(device, i, states[did][i], false)
+      emit_slot_summary(device, i, health[did][i].status, false)
     end
   end
-  recalc_overall(device)
+  recalc_overall(device, true)
 
-  -- IMPORTANT: run one finite cycle and return.  The older implementation
-  -- started one endless callback per target; target 1 occupied the device
-  -- thread, so target 2+ could remain permanently at "checking" and
-  -- preference changes could be delayed.  A finite recurring cycle keeps
-  -- the device thread free between checks.
-  device.thread:call_with_delay(0.2, function()
-    run_monitor_cycle(device, generation)
-  end, "network-monitor-cycle")
+  local invoke
+  invoke = function()
+    if generations[did] ~= generation then return end
+    local success, message = pcall(run_monitor_cycle, device, generation)
+    if not success then
+      log.error("Network monitor initial worker error: " .. tostring(message))
+      if generations[did] == generation then
+        device.thread:call_with_delay(10, invoke, "network-monitor-start-retry")
+      end
+    end
+  end
+  device.thread:call_with_delay(0.2, invoke, "network-monitor-cycle")
 end
 
 local function activate_device(driver, device)
@@ -317,8 +435,9 @@ end
 local function removed(driver, device)
   stop_workers(device)
   states[device.id] = nil
-  failures[device.id] = nil
-  successes[device.id] = nil
+  health[device.id] = nil
+  signatures[device.id] = nil
+  checked_emit_at[device.id] = nil
   pref_restart_seq[device.id] = nil
   summary_cache[device.id] = nil
 end

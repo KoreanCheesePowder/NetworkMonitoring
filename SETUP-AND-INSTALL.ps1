@@ -1,8 +1,12 @@
 ﻿$ErrorActionPreference = "Continue"
 Set-Location $PSScriptRoot
 
+Write-Warning "NEW INSTALL ONLY. EXISTING devices should use UPDATE-DRIVER.cmd instead."
+$consent = Read-Host "Type NEW to create device presentation and run first-time setup"
+if ($consent -ne "NEW") { Write-Host "Cancelled. Use UPDATE-DRIVER.cmd for upgrade."; exit 1 }
+
 Write-Host "==============================================="
-Write-Host " C.P Wallpad Network Monitor Edge Driver v1.0.6"
+Write-Host " C.P Wallpad Network Monitor Edge Driver v1.1.4"
 Write-Host "==============================================="
 Write-Host ""
 
@@ -63,7 +67,7 @@ $profile = [regex]::Replace($profile,'(?m)^\s*mnmn:\s*.*$',"  mnmn: $mnmn")
 $profile = [regex]::Replace($profile,'(?m)^\s*vid:\s*.*$',"  vid: $vid")
 [IO.File]::WriteAllText((Resolve-Path $profilePath),$profile,(New-Object Text.UTF8Encoding($false)))
 
-Write-Host "[4/4] Packaging/installing v1.0.6..."
+Write-Host "[4/4] Packaging/installing v1.1.4..."
 & smartthings edge:drivers:package . --install
 if ($LASTEXITCODE -ne 0) { throw "Driver package/install failed." }
 
