@@ -1,4 +1,4 @@
-local CP_MONITOR_META = { driver_name = "C.P Wallpad Network Monitor", driver_version = "v1.1.4", package_key = "cp-wallpad-network-monitor-v100", target_name = "Network Targets", transport = "tcp" }
+local CP_MONITOR_META = { driver_name = "C.P Wallpad Network Monitor", driver_version = "v1.1.5", package_key = "cp-wallpad-network-monitor-v100", target_name = "Network Targets", transport = "tcp" }
 local cp_monitor = require "cp_monitor"
 local health_state = require "health_state"
 local capabilities = require "st.capabilities"
@@ -6,7 +6,7 @@ local Driver = require "st.driver"
 local log = require "log"
 local socket = require "cosock.socket"
 
-local DRIVER_VERSION = "v1.1.4"
+local DRIVER_VERSION = "v1.1.5"
 local AUTHOR = "치즈가루"
 local DEVICE_DNI = "cp-wallpad-network-monitor"
 local DEVICE_PROFILE = "cp-wallpad-network-monitor"
@@ -24,6 +24,24 @@ local signatures = {}
 local checked_emit_at = {}
 local pref_restart_seq = {}
 local summary_cache = {}
+
+local availability_retry_after = {}
+local AVAILABILITY_REFRESH_SECONDS = 60
+
+-- The monitor device represents an active Edge monitor, not any one TCP target.
+-- Keep SmartThings device availability independent from target1..target8 status;
+-- marking the monitor OFFLINE when a target fails would hide the monitoring UI.
+local function refresh_device_availability(device, force)
+  local did = device.id
+  local now = os.time()
+  local next_due = availability_retry_after[did] or 0
+  if not force and now < next_due then return end
+  availability_retry_after[did] = now + AVAILABILITY_REFRESH_SECONDS
+  local ok, err = pcall(function() device:online() end)
+  if not ok then
+    log.warn("Monitor availability refresh failed: " .. tostring(err))
+  end
+end
 
 local function kst_now()
   return os.date("!%Y-%m-%d %H:%M:%S", os.time() + (9 * 60 * 60))
@@ -238,6 +256,9 @@ end
 local function run_monitor_cycle(device, generation)
   local did = device.id
   if generations[did] ~= generation then return end
+  -- Reassert device availability after temporary hub/network disruption,
+  -- even when one or more monitored services legitimately remain offline.
+  refresh_device_availability(device, false)
 
   local timeout = math.max(1, math.min(10, tonumber(pref(device, "connectTimeout", 2)) or 2))
   local threshold = math.max(1, math.min(10, tonumber(pref(device, "failThreshold", 3)) or 3))
@@ -394,6 +415,8 @@ end
 
 local function activate_device(driver, device)
   device:try_update_metadata({ profile = DEVICE_PROFILE })
+  -- Recover the existing LAN device's SmartThings OFFLINE status on driver init.
+  refresh_device_availability(device, true)
   emit_info(device)
   start_workers(device)
 end
@@ -440,10 +463,12 @@ local function removed(driver, device)
   checked_emit_at[device.id] = nil
   pref_restart_seq[device.id] = nil
   summary_cache[device.id] = nil
+  availability_retry_after[device.id] = nil
 end
 
 local function refresh_handler(driver, device, command)
   log.info("Manual refresh requested")
+  refresh_device_availability(device, true)
   start_workers(device)
 end
 

@@ -1,4 +1,5 @@
-C.P Wallpad Network Monitor v1.1.4
+C.P Wallpad Network Monitor v1.1.5
 
-수정/업데이트 안내는 `docs/README.txt`, `docs/업데이트_및_검증.txt` 참고.
-기존 장치 업데이트에는 `UPDATE-DRIVER.cmd` 사용.
+EXISTING DRIVER UPDATE: `UPDATE-EXISTING.cmd` (same as `UPDATE-DRIVER.cmd`).
+NEVER delete the registered device or regenerate Capability/VID.
+See `docs/README.txt` and `docs/CHANGELOG-v1.1.5.txt`.

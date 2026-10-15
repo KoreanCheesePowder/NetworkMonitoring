@@ -1,0 +1,8 @@
+v1.1.5 (2026-10-15)
+- On device init and manual refresh, call device:online() with exception protection.
+- Reassert monitor-device ONLINE at most once per 60 seconds during monitoring cycles.
+- Do not mark the monitor device OFFLINE when individual TCP targets fail.
+- Keep all target status/notification logic, latency thresholds and preferences intact.
+- Replace broken --install packaging with CLI 2.1.2 channel/hub update flow.
+- Verify existing driver and device identity before attempting update.
+- Block first-install scripts in the existing-device update ZIP.

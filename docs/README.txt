@@ -1,28 +1,30 @@
-﻿C.P Wallpad Network Monitor v1.1.4 (Edge Driver)
-제작자: 치즈가루
+C.P Wallpad Network Monitor v1.1.5 - Online Recovery
 
-이번 업데이트는 오류 알림과 TCP 검사 판정 로직을 수정합니다.
-펌웨어(ESP32-99/101/103/ESL)는 변경하지 않습니다.
-기존 SmartThings 장치, 루틴, Capability, 1~8번 대상 설정, 패키지 키를 유지합니다.
+Update on the existing SmartThings hub:
+1. Extract ZIP to its own folder.
+2. Double-click UPDATE-EXISTING.cmd. (UPDATE-DRIVER.cmd is the same updater.)
+3. Do NOT run first-time setup or delete/re-add the device.
+4. Confirm the existing device '월패드 네트워크 상태' becomes ONLINE.
+5. Confirm 8 target statuses, names, intervals, 90-second failure and
+   20-second recovery timing, and routines continue to work as before.
 
-감시 방식
-- ICMP Ping이 아닌 TCP 포트의 연결 성공 여부만 확인합니다.
-- 연결 실패가 곧 무선 또는 LAN 끊김을 의미하지는 않습니다.
-- 기존 설정의 연속 실패 횟수 이상이면서 90초 이상 지속돼야 비정상으로 확정합니다.
-- 비정상 이후 설정된 연속 성공 횟수 이상이고 20초 이상 안정되어야 정상 복구합니다.
-- 드라이버 재시작/새로고침에서는 기존 확정 상태를 유지합니다.
-- 확인된 상태는 장치 로컬 저장소에도 보존해 상태 캐시가 비어도 복원합니다.
-- Edge 내부 소켓 오류는 대상 장비 오프라인으로 오판하지 않습니다.
-- 같은 장애가 지속되는 동안 Edge 텔레메트리 오류 횟수를 반복 증가시키지 않습니다.
-- 확정 장애/복구 시 NAS 시스템 모니터에 별도 텔레메트리를 한 번 전송합니다.
+The monitoring device is ONLINE when the Edge driver itself runs.
+Individual TCP targets are evaluated separately; a failed target does NOT
+mark the monitor device offline. On init and every 60 seconds it reasserts
+its own availability to SmartThings. Target outage/recovery events stay as is.
 
-주의
-- CPU 또는 서비스 포트 과부하를 원천적으로 없애는 패치는 아닙니다.
-- ESP32 장비의 통신용 포트와 전용 헬스 포트가 무엇인지 확인이 필요합니다.
-- 192.168.1.101:8899를 감시하도록 설정했다면 기존과 동일하게 8898로 자동 대체합니다.
-- 101과 103의 기존 설정은 자동 변경하지 않습니다.
-- 모든 장비/네트워크에 대한 현장 정상 동작은 보장할 수 없으므로 배포 후 검증이 필요합니다.
+UNCHANGED: 8 targets, target host/port settings, 101:8899 -> 8898 probe
+redirect, routines, TCP classification rules, monitor telemetry, capabilities,
+profile, device presentation VID and packageKey.
 
-업데이트: 기존 장치 업데이트에는 UPDATE-DRIVER.cmd를 사용하세요.
-처음 설치: SETUP-AND-INSTALL.cmd는 처음 설치할 때만 사용합니다.
-자세한 지침: docs/업데이트_및_검증.txt
+Existing identity:
+Package key cp-wallpad-network-monitor-v100
+Driver ID b08dbe13-6340-4c77-8939-5b3e2ea4c837
+Hub ID c9e6b370-41a7-499a-ae95-3496747cd165
+Channel ID cd373cad-c1db-4b2a-943b-6ed6fb51d2fa
+VID 40758e17-c4bc-3b3f-a549-a3562f312024
+
+Local Lua/JSON/YAML/ZIP checks do not guarantee successful deployment.
+Update on the real hub and verify the existing device afterwards.
+
+Previous v1.1.4 notes retained in docs/README-v1.1.4.txt.

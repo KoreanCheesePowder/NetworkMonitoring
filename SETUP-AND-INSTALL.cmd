@@ -1,5 +1,3 @@
 @echo off
-cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0SETUP-AND-INSTALL.ps1"
-echo.
+echo NEW INSTALL DISABLED. Please run UPDATE-EXISTING.cmd for existing devices.
 pause
